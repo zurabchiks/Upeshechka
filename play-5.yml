@@ -1,0 +1,13 @@
+---
+- name: Копирование файлов
+  hosts: [test]
+  tasks:
+    - name: Скопировать project.txt в Project7
+      ansible.builtin.copy:
+        src: /root/Project/project.txt
+        dest: /root/Project7/  # Абсолютный путь на узле!
+
+    - name: Скопировать ansible.txt в Ansible7
+      ansible.builtin.copy:
+        src: /root/Project/ansible.txt
+        dest: /root/Project7/Ansible7/

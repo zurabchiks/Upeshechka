@@ -1,0 +1,76 @@
+---
+- name: Установка и настройка Docker
+  hosts: [test]  # Указываем узлы, на которых нужно установить Docker
+  become: yes
+  vars:
+    docker_users:  # Список пользователей, которые будут добавлены в группу docker
+      - user
+
+  tasks:
+    # Установка зависимостей
+    - name: Установить необходимые пакеты
+      ansible.builtin.dnf:
+        name:
+          - yum-utils
+          - device-mapper-persistent-data
+          - lvm2
+        state: present
+
+    # Добавление Docker репозитория
+    - name: Добавить Docker репозиторий
+      ansible.builtin.yum_repository:
+        name: docker-ce
+        description: Docker CE Repository
+        baseurl: https://download.docker.com/linux/centos/$releasever/$basearch/stable
+        gpgcheck: yes
+        gpgkey: https://download.docker.com/linux/centos/gpg
+        enabled: yes
+
+    # Установка Docker
+    - name: Установить Docker
+      ansible.builtin.dnf:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+        state: present
+
+    # Запуск и включение Docker
+    - name: Запустить и включить Docker
+      ansible.builtin.service:
+        name: docker
+        state: started
+        enabled: yes
+
+    # Добавление пользователей в группу docker
+    - name: Добавить пользователей в группу docker
+      ansible.builtin.user:
+        name: "{{ item }}"
+        groups: docker
+        append: yes
+      loop: "{{ docker_users }}"
+
+    # Установка Docker Compose
+    - name: Установить Docker Compose
+      ansible.builtin.get_url:
+        url: https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64
+        dest: /usr/local/bin/docker-compose
+        mode: '0755'
+
+    # Проверка установки Docker
+    - name: Проверить установку Docker
+      ansible.builtin.shell: docker --version
+      register: docker_version
+
+    - name: Вывести версию Docker
+      ansible.builtin.debug:
+        var: docker_version.stdout
+
+    # Проверка установки Docker Compose
+    - name: Проверить установку Docker Compose
+      ansible.builtin.shell: docker compose --version
+      register: docker_compose_version
+
+    - name: Вывести версию Docker Compose
+      ansible.builtin.debug:
+        var: docker_compose_version.stdout

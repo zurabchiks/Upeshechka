@@ -1,0 +1,73 @@
+---
+- name: Установка и настройка LAMP-стека
+  hosts: 11.11.11.3
+  become: yes
+  vars:
+    mysql_root_password: "P@ssw0rd"
+    php_modules:
+      - php
+      - php-mysqlnd
+      - php-gd
+      - php-curl
+      - php-mbstring
+      - php-xml
+
+  tasks:
+    # Установка Apache
+    - name: Установить Apache
+      ansible.builtin.dnf:
+        name: httpd
+        state: present
+
+    - name: Запустить и включить Apache
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    # Установка MariaDB
+    - name: Установить MariaDB
+      ansible.builtin.dnf:
+        name:
+          - mariadb-server
+          - mariadb
+        state: present
+
+    - name: Запустить и включить MariaDB
+      ansible.builtin.service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    # Настройка безопасности MariaDB
+    - name: Настроить MariaDB (mysql_secure_installation)
+      ansible.builtin.shell: |
+        mysqladmin -u root password '{{ mysql_root_password }}'
+        mysql -u root -p{{ mysql_root_password }} <<-EOF
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+        FLUSH PRIVILEGES;
+        EOF
+      args:
+        executable: /bin/bash
+
+    # Установка PHP и модулей
+    - name: Установить PHP и модули
+      ansible.builtin.dnf:
+        name: "{{ php_modules }}"
+        state: present
+
+    # Настройка Apache для работы с PHP
+    - name: Создать тестовый PHP-файл
+      ansible.builtin.copy:
+        content: "<?php phpinfo(); ?>"
+        dest: /var/www/html/info.php
+        mode: "0644"
+
+    # Перезапуск Apache (если нужно после настройки)
+    - name: Перезапустить Apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted

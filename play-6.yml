@@ -1,0 +1,14 @@
+---
+- name: Установка пакетов
+  hosts: [test]
+  become: yes
+  tasks:
+    - name: Установить cowsay
+      ansible.builtin.dnf:
+        name: cowsay
+        state: present
+
+    - name: Установить cmatrix
+      ansible.builtin.dnf:
+        name: cmatrix
+        state: present

@@ -1,0 +1,18 @@
+---
+- name: Обновление системы RHEL
+  hosts: all  # Или укажите конкретные хосты
+  become: true  # Выполнять действия от имени root
+  tasks:
+    - name: Обновить индекс пакетов
+      ansible.builtin.dnf:
+        update_cache: yes
+
+    - name: Обновить все устаревшие пакеты
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest
+
+    - name: Перезагрузка сервера (если были обновления ядра)
+      ansible.builtin.reboot:
+      when: ansible_facts['kernel'] != ansible_facts['kernel_version']
+

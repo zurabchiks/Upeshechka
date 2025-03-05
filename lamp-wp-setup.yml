@@ -1,0 +1,123 @@
+---
+- name: Установка и настройка LAMP + WordPress
+  hosts: [test]
+  become: yes
+
+  vars:
+    mysql_root_password: "P@ssw0rd"
+    wordpress_db_name: "wordpress_db"
+    wordpress_db_user: "wp_user"
+    wordpress_db_pass: "wp_password"
+    wordpress_url: "https://wordpress.org/latest.tar.gz"  # Или другой источник WordPress
+    php_modules:
+      - php
+      - php-mysqlnd
+      - php-gd
+      - php-curl
+      - php-mbstring
+      - php-xml
+
+  tasks:
+    # 1. Установка Apache
+    - name: Установить Apache
+      ansible.builtin.dnf:
+        name: httpd
+        state: present
+
+    - name: Запустить и включить Apache
+      ansible.builtin.service:
+        name: httpd
+        state: started
+        enabled: yes
+
+    - name: Установить библиотеки Python для работы с MySQL
+      ansible.builtin.dnf:
+        name:
+          - python3-PyMySQL  # или python3-mysqlclient
+        state: present
+
+    # 2. Установка MariaDB
+    - name: Установить MariaDB
+      ansible.builtin.dnf:
+        name:
+          - mariadb-server
+          - mariadb
+        state: present
+
+    - name: Запустить и включить MariaDB
+      ansible.builtin.service:
+        name: mariadb
+        state: started
+        enabled: yes
+
+    # 3. Настройка MariaDB (безопасность + root пароль)
+    - name: Настроить MariaDB (mysql_secure_installation)
+      ansible.builtin.shell: |
+        mysqladmin -u root password '{{ mysql_root_password }}'
+        mysql -u root -p{{ mysql_root_password }} <<-EOF
+        DELETE FROM mysql.user WHERE User='';
+        DELETE FROM mysql.user WHERE User='root' AND Host NOT IN ('localhost', '127.0.0.1', '::1');
+        DROP DATABASE IF EXISTS test;
+        DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';
+        FLUSH PRIVILEGES;
+        EOF
+      args:
+        executable: /bin/bash
+
+    # 4. Создание базы и пользователя для WordPress
+    - name: Создать базу данных WordPress
+      ansible.builtin.mysql_db:
+        name: "{{ wordpress_db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Создать пользователя WordPress
+      ansible.builtin.mysql_user:
+        name: "{{ wordpress_db_user }}"
+        password: "{{ wordpress_db_pass }}"
+        priv: "{{ wordpress_db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    # 5. Установка PHP и модулей
+    - name: Установить PHP и модули
+      ansible.builtin.dnf:
+        name: "{{ php_modules }}"
+        state: present
+
+    # 6. Скачать WordPress
+    - name: Скачать архив WordPress
+      ansible.builtin.get_url:
+        url: "{{ wordpress_url }}"
+        dest: /tmp/wordpress.tar.gz
+
+    # 7. Распаковать WordPress
+    - name: Распаковать WordPress
+      ansible.builtin.unarchive:
+        src: /tmp/wordpress.tar.gz
+        dest: /var/www/html
+        remote_src: yes
+
+    # 8. Настроить wp-config.php
+    - name: Переименовать wp-config-sample.php в wp-config.php
+      ansible.builtin.command: mv /var/www/html/wordpress/wp-config-sample.php /var/www/html/wordpress/wp-config.php
+      args:
+        removes: /var/www/html/wordpress/wp-config-sample.php
+
+    - name: Настроить wp-config.php
+      ansible.builtin.lineinfile:
+        path: /var/www/html/wordpress/wp-config.php
+        regexp: "{{ item.regexp }}"
+        line: "{{ item.line }}"
+      loop:
+        - { regexp: "^define\\( 'DB_NAME'",  line: "define( 'DB_NAME', '{{ wordpress_db_name }}' );" }
+        - { regexp: "^define\\( 'DB_USER'",  line: "define( 'DB_USER', '{{ wordpress_db_user }}' );" }
+        - { regexp: "^define\\( 'DB_PASSWORD'", line: "define( 'DB_PASSWORD', '{{ wordpress_db_pass }}' );" }
+
+    # 9. Перезапуск Apache для подхвата изменений
+    - name: Перезапустить Apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted

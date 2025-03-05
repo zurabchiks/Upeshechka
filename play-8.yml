@@ -1,0 +1,20 @@
+---
+- name: Замена дефолтной страницы Apache
+  hosts: [test]
+  become: yes
+  tasks:
+    - name: Создать кастомную страницу
+      ansible.builtin.copy:
+        content: |
+          <html>
+            <body>
+              <h1>Зурабов Александр, группа С1-21</h1>
+            </body>
+          </html>
+        dest: /var/www/html/index.html
+        mode: 0644
+
+    - name: Перезапустить Apache
+      ansible.builtin.service:
+        name: httpd
+        state: restarted

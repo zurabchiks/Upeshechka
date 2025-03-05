@@ -1,0 +1,13 @@
+---
+- name: Создание директорий
+  hosts: [test]
+  tasks:
+    - name: Создать папку Project7
+      ansible.builtin.file:
+        path: ~/Project7
+        state: directory
+
+    - name: Создать папку Ansible7
+      ansible.builtin.file:
+        path: ~/Ansible7
+        state: directory

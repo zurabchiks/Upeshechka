@@ -1,0 +1,38 @@
+---
+- name: Проверка целостности и качества соединения с Manage Node
+  hosts: all
+  gather_facts: no
+  vars:
+    manage_node_ip: "11.11.11.2"
+    manage_node_ip: "22.22.22.2"  # Замените на IP-адрес Manage Node
+    manage_node_port: 22             # Замените на порт, который нужно проверить (например, SSH порт 22)
+    timeout: 10                      # Таймаут в секундах для проверки соединения
+
+  tasks:
+    - name: Проверка доступности Manage Node по TCP/IP
+      wait_for:
+        host: "{{ manage_node_ip }}"
+        port: "{{ manage_node_port }}"
+        timeout: "{{ timeout }}"
+      delegate_to: localhost
+      ignore_errors: yes
+      register: tcp_check
+
+    - name: Проверка отклика Manage Node с помощью ping
+      ping:
+      delegate_to: "{{ manage_node_ip }}"
+      when: tcp_check is success
+      register: ping_check
+
+    - name: Вывод результата проверки TCP/IP
+      debug:
+        msg: >
+          Проверка TCP/IP соединения с {{ manage_node_ip }}:{{ manage_node_port }} 
+          {% if tcp_check is success %}успешна{% else %}не удалась{% endif %}.
+
+    - name: Вывод результата проверки ping
+      debug:
+        msg: >
+          Проверка ping на {{ manage_node_ip }} 
+          {% if ping_check is success %}успешна{% else %}не удалась{% endif %}.
+      when: tcp_check is success
